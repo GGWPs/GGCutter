@@ -6,9 +6,9 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Stroke;
+import java.util.List;
 
 import org.dreambot.api.methods.Calculations;
-import org.dreambot.api.methods.container.impl.bank.BankLocation;
 import org.dreambot.api.methods.map.Area;
 import org.dreambot.api.methods.map.Tile;
 import org.dreambot.api.methods.skills.Skill;
@@ -21,11 +21,12 @@ import org.dreambot.api.utilities.Timer;
 import org.dreambot.api.utilities.impl.Condition;
 import org.dreambot.api.wrappers.interactive.GameObject;
 import org.dreambot.api.wrappers.items.GroundItem;
+import org.dreambot.api.wrappers.items.Item;
 import org.dreambot.api.wrappers.widgets.message.Message;
 
 import util.Wood;
 
-@ScriptManifest(author = "GGWP", category = Category.WOODCUTTING, description = "Chops logs/willows/yews", name = "GGCutter", version = 1.6)
+@ScriptManifest(author = "GGWP", category = Category.WOODCUTTING, description = "Chops logs/willows/yews", name = "GGCutter", version = 1.8)
 public class GGCutter extends AbstractScript implements MessageListener {
 	
 	private GUI gui;
@@ -33,33 +34,47 @@ public class GGCutter extends AbstractScript implements MessageListener {
 	private boolean newNest;
 	
 	private Wood currentLog;
+	
 	private Area BANK_AREA = new Area(3207,3220,3210,3216,2);
 	private Area BANK_AREA2 = new Area(3092,3246,3095,3240,0);
 	private Area TREE_AREA = new Area(3190,3252,3207,3237);	
-	private Area TREE_AREA2 = new Area(3082,3239,3090, 3226,0);
-	private Area YEW_AREA = new Area(3052,3273,3055, 3269,0);
-	private final Tile LUMBY_STAIRS = new Tile(3205,3209,0);
-	private final Tile TOP_STAIRS = new Tile(3205,3209,2);												
-	private final Tile OUTSIDE = new Tile(3195,3219,0);
+	private Area TREE_AREA2 = new Area(3082,3239,3090,3226,0);
+	private Area TREE_AREA3 = new Area(3112,3508,3123,3501,0);
+	private Area TREE_AREA4 = new Area(3071,3471,3099,3448,0); //powerchopping
+	private Area OAK_AREA = new Area(3202,3249,3207,3238);	
+	private Area YEW_AREA = new Area(3052,3273,3055,3269,0); 
+	private Area YEW_AREA2 = new Area(3202,3506,3224,3498,0); 
+	private Area YEW_AREA3 = new Area(3084,3483,3089,3468,0); 
+	//private ArrayList<Area> yews = new ArrayList<>(Arrays.asList(YEW_AREA, YEW_AREA2, YEW_AREA3));
+	//private ArrayList<Area> ptrees = new ArrayList<>(Arrays.asList(TREE_AREA4));
+	//private ArrayList<Area> btrees = new ArrayList<>(Arrays.asList(TREE_AREA, TREE_AREA2, TREE_AREA3));
+	
+	private Area STAIRAREA = new Area(3205,3211,3207,3209,0); 
+	private final Tile LUMBY_STAIRS = new Tile(3205,3211,0);
+	private final Tile TOP_STAIRS = new Tile(3206,3210,2);		
+	
 	private String eAxe;
 	private String eAxe2;
 	
 	Timer timer;
+	
 	private Area TREEAREA;
 	private Area BANK;
+	
 	private int logsgained;
 	private int logsanhour;
 	private int xnests;
 	private int logprice;
 	private int lvl;
+	
 	private double logXP;
+	public boolean haveAxe;
 	
 	String Status = " ";
 	static String status = null;
 
 	private GameObject tree;
 	
-	private State state;
 
 
 
@@ -68,53 +83,16 @@ public class GGCutter extends AbstractScript implements MessageListener {
 		gui = new GUI(this);
 		gui.setVisible(true);
 		super.onStart();
-		currentLog = Wood.NORMAL;
+		sleepUntil(() -> startScript, 60000);
 		sleepUntil(() -> getClient().isLoggedIn(),
-		Calculations.random(40000, 60000));
+		Calculations.random(30000, 60000));
 		getSkillTracker().start(Skill.WOODCUTTING);
 		lvl = getSkills().getRealLevel(Skill.WOODCUTTING);
+		currentLog = Wood.OAK;
 		eAxe2 = "Bronze axe";
+		haveAxe = false;
 		BANK = BANK_AREA;
-	}
-	
-	private enum State {
-		BANK, WALK_TO_TREE, CUT, WAIT;
-	}
-	
-	private State getState() {
-		{
-	tree = getGameObjects().closest(
-			gameObject -> gameObject != null
-					&& gameObject.getName().equals(currentLog.getTreeName())
-					&& gameObject.distance() < 17
-					&& TREEAREA.contains(gameObject));
-	
-	if (startScript) {
-		if (!getInventory().isFull() && !getLocalPlayer().isAnimating()) {
-			return State.CUT;
-		} else if (getInventory().isFull()) {
-				return State.BANK;
-			}
-		} else if (TREEAREA.contains(getLocalPlayer())
-				&& getLocalPlayer().isAnimating()) {
-			return State.WAIT;
-		}
-		else if (BANK.contains(getLocalPlayer())
-				&& !getInventory().isFull()
-				&& getInventory().contains(eAxe, eAxe2)){
-			return State.WALK_TO_TREE;
-		} else if (BANK.contains(getLocalPlayer())
-				&& getInventory().isFull()){
-			bank();
-		}
-	}
-	return null;
-	}
-
-
-	@Override
-	public int onLoop() {
-		
+		TREEAREA = TREE_AREA;
 		if(lvl > 65){
 			currentLog = Wood.YEW;
 			BANK = BANK_AREA2;
@@ -130,7 +108,7 @@ public class GGCutter extends AbstractScript implements MessageListener {
 			BANK = BANK_AREA2;
 		} else if (lvl > 21) {
 			eAxe = "Mithril axe";
-			currentLog = Wood.WILLOW;
+			currentLog = Wood.OAK;
 			BANK = BANK_AREA2;
 		} else if (lvl > 11) {
 			eAxe = "Black axe";
@@ -151,6 +129,7 @@ public class GGCutter extends AbstractScript implements MessageListener {
 		} else if (currentLog == Wood.OAK) {
 			logXP = 37.5;
 			logprice = 48;
+			TREEAREA = OAK_AREA;
 		} else if (currentLog == Wood.WILLOW) {
 			logXP = 67.5;
 			logprice = 8;
@@ -168,6 +147,62 @@ public class GGCutter extends AbstractScript implements MessageListener {
 			logXP = 250;
 			logprice = 1168;
 		}
+	}
+	
+	private enum State {
+		BANK, WALK_TO_TREE, CUT, WAIT, DROP,
+	}
+	
+	private State getState() {
+	tree = getGameObjects().closest(
+			gameObject -> gameObject != null
+					&& gameObject.getName().equals(currentLog.getTreeName())
+					&& gameObject.distance() < 17
+					&& TREEAREA.contains(gameObject));
+	
+	if (startScript) {
+		if (getInventory().contains(eAxe, eAxe2)
+				&& haveAxe == false){
+			log("axe found in inventory");
+			haveAxe = true;
+		} else if (!getInventory().contains(eAxe, eAxe2)){
+			log("No axe found in inventory");
+			haveAxe = false;
+			log("walking to bank to get a axe");
+			return State.BANK;
+		} else if (!getInventory().isFull() 
+				&& !getLocalPlayer().isAnimating()
+				&& getInventory().contains(eAxe, eAxe2)
+				&& TREEAREA.contains(getLocalPlayer())) {
+			log("Time to CHOP!");
+			return State.CUT;
+		} else if (getInventory().isFull()) {
+				log("TIME TO BANK");
+				return State.BANK;
+		} else if (TREEAREA.contains(getLocalPlayer())
+				&& getLocalPlayer().isAnimating()) {
+					log("waiting");
+					return State.WAIT;
+		} else if (!TREEAREA.contains(getLocalPlayer())
+				&& (!BANK.contains(getLocalPlayer()))){
+					log("walking to tree");
+					return State.WALK_TO_TREE;
+		} else if (BANK.contains(getLocalPlayer())
+				&& getInventory().isFull()){
+					bank();
+		} else if (!getInventory().isFull()
+				&& getInventory().contains(eAxe2, eAxe)
+				&& BANK.contains(getLocalPlayer())){
+							log("walking to tree from bank");
+							return State.WALK_TO_TREE;
+		}
+	}
+	return null;
+	}
+
+	@Override
+	public int onLoop() {
+		
 		
 		tree = getGameObjects().closest(
 				gameObject -> gameObject != null
@@ -177,8 +212,6 @@ public class GGCutter extends AbstractScript implements MessageListener {
 		
 		switch (getState()) {
 
-		
-		
 		case CUT:
 			if(lvl > 65){
 				currentLog = Wood.YEW;
@@ -191,12 +224,12 @@ public class GGCutter extends AbstractScript implements MessageListener {
 				currentLog = Wood.WILLOW;
 			} else if (lvl > 31) {
 				eAxe = "Adamant axe";
-				currentLog = Wood.WILLOW;
-				BANK = BANK_AREA2;
+				currentLog = Wood.OAK;
+				BANK = BANK_AREA;
 			} else if (lvl > 21) {
 				eAxe = "Mithril axe";
-				currentLog = Wood.WILLOW;
-				BANK = BANK_AREA2;
+				currentLog = Wood.OAK;
+				BANK = BANK_AREA;
 			} else if (lvl > 11) {
 				eAxe = "Black axe";
 				currentLog = Wood.NORMAL;
@@ -209,7 +242,7 @@ public class GGCutter extends AbstractScript implements MessageListener {
 				eAxe2 = "Bronze axe";
 			}
 			
-			
+				
 			if (currentLog == Wood.NORMAL) {
 				logXP = 25;
 				logprice = 64;
@@ -238,15 +271,15 @@ public class GGCutter extends AbstractScript implements MessageListener {
 			
 			
 			if (TREEAREA.contains(getLocalPlayer())) {
-				if (!newNest) { // bird nest check
+				if (!newNest) { 
 					if (tree != null && TREEAREA.contains(tree)) {
 						if (tree.isOnScreen()) {
-							chop(); // chop the tree
+							chop(); 
 						} else {
-							move(); // move the camera a bit
+							move(); 
 						}
 					} else {
-						hopWorlds(); // hop worlds
+						hopWorlds(); 
 					}
 				} else {
 					GroundItem nest = getGroundItems().closest("Bird nest");
@@ -292,6 +325,7 @@ public class GGCutter extends AbstractScript implements MessageListener {
 				&& (getLocalPlayer().getTile().getZ() == 2)
 				&& (!BANK.contains(getLocalPlayer()))){
 				getWalking().walk(BANK.getRandomTile());
+				sleep(Calculations.random(2500, 4500));
 				
 			} else if (BANK == BANK_AREA 
 					&& (getLocalPlayer().getTile().getZ() == 1)) {
@@ -328,21 +362,23 @@ public class GGCutter extends AbstractScript implements MessageListener {
 			
 		case WALK_TO_TREE:
 			if (getLocalPlayer().getTile().getZ() == 2) {
-				if (getLocalPlayer().getTile().distance(TOP_STAIRS) > 5) {
+				if (getLocalPlayer().getTile().distance(TOP_STAIRS) > 4) {
+					log("walking to stairs");
 					getWalking().walk(TOP_STAIRS);
-					sleep(Calculations.random(2500, 4500));
-				} else {
+					sleep(Calculations.random(3500, 6500));
+					getCamera().rotateToTile(STAIRAREA.getRandomTile());
+			} else {
 					GameObject stairs = getGameObjects().closest("Staircase");
 					if (stairs != null) {
+						log("Interacting with stairs");
 						stairs.interact("Climb-down");
 						sleepUntil(new Condition() {
 							public boolean verify() {
 								return getLocalPlayer().getTile().getZ() == 1;
 							}
 						}, Calculations.random(2400, 2800));
-
-					}
 				}
+			}
 			} else if (getLocalPlayer().getTile().getZ() == 1) {
 				GameObject stairs = getGameObjects().closest("Staircase");
 				if (stairs != null) {
@@ -354,11 +390,15 @@ public class GGCutter extends AbstractScript implements MessageListener {
 					}, Calculations.random(2400, 2800));
 				}
 			} else {
-				if (BANK == BANK_AREA
-				&& (getLocalPlayer().getTile().distance(OUTSIDE) > 6)) {
-					getWalking().walk(OUTSIDE);
+				if (getLocalPlayer().getTile().getZ() == 0){
+							getWalking().walk(TREEAREA.getRandomTile()); 
+							log("walking to trees");
+							sleepUntil(() -> (getClient().getDestination().distance() < Calculations.random(
+											4, 9))
+											|| getLocalPlayer().isStandingStill(),
+									Calculations.random(4000, 6010));
+						}
 				}
-			}
 			break;
 			
 		case WAIT:
@@ -366,9 +406,16 @@ public class GGCutter extends AbstractScript implements MessageListener {
 			sleepUntil(() -> !getLocalPlayer().isAnimating(),
 					Calculations.random(7000, 12000));
 			break;
+			
+		case DROP:
+			List<Item> items = this.getInventory().all(i -> i.getName() == currentLog.getLogName());
+			for (Item i: items) {
+			    if(i.interact("Bury")){
+			        sleepUntil(() -> (i == null || !i.isValid()),1500);
+			    }
+			}
 		}
-
-		return Calculations.random(200, 400);
+		return Calculations.random(200, 500);
 	}
 
 	private void move() {
@@ -378,14 +425,14 @@ public class GGCutter extends AbstractScript implements MessageListener {
 			getCamera().rotateToEntity(tree);
 			getCamera().rotateToPitch(Calculations.random(32, 39));
 		} else {
-			Status = "Walking to stuff";
+			log("Walking to stuff");
 			if (tree != null) {
 				getWalking().walk(tree);
 				sleepUntil(
 						() -> (getClient().getDestination().distance() < Calculations.random(
 								4, 6))
 								|| getLocalPlayer().isStandingStill(),
-						Calculations.random(4100, 5110));
+						Calculations.random(4000, 5500));
 			}
 
 		}
@@ -485,6 +532,19 @@ public class GGCutter extends AbstractScript implements MessageListener {
 
 	private void bank() {
 		if (BANK.contains(getLocalPlayer())
+				&& (haveAxe == false)){
+			getBank().open();
+			sleepUntil(() -> getBank().isOpen(),
+					Calculations.random(4000, 6000));
+		}
+		
+		if (BANK.contains(getLocalPlayer())
+				&& !getInventory().contains(eAxe, eAxe2)){
+			getBank().open();
+			sleepUntil(() -> getBank().isOpen(),
+					Calculations.random(4000, 6000));
+		}
+		if (BANK.contains(getLocalPlayer())
 				&& getInventory().isFull()
 				&& getInventory().contains(eAxe, eAxe2, "Bronze axe", "Iron axe",
 						"Steel axe", "Black axe", "Mithril axe", "Adamant axe",
@@ -496,9 +556,18 @@ public class GGCutter extends AbstractScript implements MessageListener {
 		if (getBank().isOpen()) {
 			if (!getInventory().onlyContains(eAxe)
 					&& getBank().contains(eAxe)) {
-				getBank().depositAllExcept(eAxe, eAxe2);
-				sleep(Calculations.random(600, 1200));
+				getBank().depositAllExcept(eAxe);
+				sleep(Calculations.random(1000, 2000));
 				getBank().withdraw(eAxe);
+				sleep(Calculations.random(1000, 2000));
+				haveAxe = true;
+					}  else if (!getInventory().contains(eAxe, eAxe2)
+							&& (getBank().contains(eAxe2))){
+						getBank().depositAllExcept(eAxe2);
+						sleep(Calculations.random(600, 1200));
+						getBank().withdraw(eAxe2);
+						haveAxe = true;
+						
 					} else if  (!getInventory().onlyContains(eAxe, eAxe2)) {
 						getBank().depositAllExcept(eAxe, eAxe2);
 					} else {
@@ -507,7 +576,7 @@ public class GGCutter extends AbstractScript implements MessageListener {
 								public boolean verify(){
 									return getBank().isOpen();
 								}
-							},Calculations.random(4000,6000));
+							},Calculations.random(3000,6000));
 						}
 					}
 				}
@@ -530,11 +599,11 @@ public class GGCutter extends AbstractScript implements MessageListener {
 			if (!getTabs().isOpen(Tab.INVENTORY)) {
 				getTabs().open(Tab.INVENTORY);
 			}
-		} else if (random <= 15) {
-			getCamera().rotateToTile(TREE_AREA2.getRandomTile());
 		} else if (random <= 20) {
+			getCamera().rotateToTile(TREEAREA.getRandomTile());
+		} else if (random <= 30) {
 			getCamera().rotateToEntity(getLocalPlayer());
-		} else if (random <= 88) {
+		} else if (random <= 108) {
 			if (getMouse().isMouseInScreen()) {
 				if (getMouse().moveMouseOutsideScreen()) {
 					sleep(Calculations.random(1500, 3000));
@@ -544,6 +613,8 @@ public class GGCutter extends AbstractScript implements MessageListener {
 			//
 		}
 	}
+	
+
 	
 	private final Color color1 = new Color(100, 100, 51, 147);
 	private final Color color2 = new Color(30, 70, 19);
@@ -558,24 +629,22 @@ public class GGCutter extends AbstractScript implements MessageListener {
 		logsgained = (int) Math.floor(getSkillTracker().getGainedExperience(
 				Skill.WOODCUTTING) / logXP); 
 		logsanhour = t.getHourlyRate(logsgained);
-
 		if (t == null) {
 			t = new Timer(0);
 		}
 		Graphics2D g = (Graphics2D) g1;
 		Stroke stroke = g.getStroke();
 		g.setColor(color1);
-		g.fillRect(3, 4, 175, 165);
+		g.fillRect(3, 4, 185, 175);
 		g.setColor(color2);
 		g.setStroke(stroke1);
-		g.drawRect(3, 4, 175, 165);
+		g.drawRect(3, 4, 185, 175);
 		g.setFont(font1);
 		g.setColor(color3);
 		g.drawString(getManifest().name() + "         " + "v"
 				+ getManifest().version(), 12, 29);
 		g.setFont(font2);
 		g.setFont(font3);
-		g.drawString("State: " + state.toString(), 12, 40);
 		g.drawString("Time running: " + Timer.formatTime(t.elapsed()), 12, 59);
 		g.drawString(
 				"Levels gained: " 
@@ -603,8 +672,9 @@ public class GGCutter extends AbstractScript implements MessageListener {
 				+ " ["
 				+ (int) Math.floor(logsanhour * logprice) 
 				+ "]", 12, 161);
+		g.drawString("Target: " + currentLog.getTreeName(), 12, 174);
 		if (gui.getway() == "Member") {
-			g.drawString("{" + xnests + "}", 150, 161);
+			g.drawString("{" + xnests + "}", 150, 181);
 		}
 		g.setStroke(stroke);
 	}
