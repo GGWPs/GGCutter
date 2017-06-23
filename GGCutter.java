@@ -88,7 +88,7 @@ public class GGCutter extends AbstractScript implements MessageListener {
 		Calculations.random(30000, 60000));
 		getSkillTracker().start(Skill.WOODCUTTING);
 		lvl = getSkills().getRealLevel(Skill.WOODCUTTING);
-		currentLog = Wood.OAK;
+		currentLog = Wood.NORMAL;
 		eAxe2 = "Bronze axe";
 		haveAxe = false;
 		BANK = BANK_AREA;
@@ -109,16 +109,17 @@ public class GGCutter extends AbstractScript implements MessageListener {
 		} else if (lvl > 21) {
 			eAxe = "Mithril axe";
 			currentLog = Wood.OAK;
-			BANK = BANK_AREA2;
+			BANK = BANK_AREA;
 		} else if (lvl > 11) {
 			eAxe = "Black axe";
+			currentLog = Wood.NORMAL;
 		} else if (lvl > 6 ) {
 			eAxe = "Steel axe";
+			currentLog = Wood.NORMAL;
 		} else if (lvl > 1) {
 			currentLog = Wood.NORMAL;
 			eAxe = "Iron axe";
 			eAxe2 = "Bronze axe";
-			BANK = BANK_AREA;
 		}
 		
 		
