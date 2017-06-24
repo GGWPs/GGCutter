@@ -6,6 +6,8 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Stroke;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.dreambot.api.methods.Calculations;
@@ -13,6 +15,7 @@ import org.dreambot.api.methods.map.Area;
 import org.dreambot.api.methods.map.Tile;
 import org.dreambot.api.methods.skills.Skill;
 import org.dreambot.api.methods.tabs.Tab;
+import org.dreambot.api.methods.walking.pathfinding.impl.obstacle.impl.PassableObstacle;
 import org.dreambot.api.script.AbstractScript;
 import org.dreambot.api.script.Category;
 import org.dreambot.api.script.ScriptManifest;
@@ -43,11 +46,15 @@ public class GGCutter extends AbstractScript implements MessageListener {
 	private Area TREE_AREA4 = new Area(3071,3471,3099,3448,0); //powerchopping
 	private Area OAK_AREA = new Area(3202,3249,3207,3238);	
 	private Area YEW_AREA = new Area(3052,3273,3055,3269,0); 
-	private Area YEW_AREA2 = new Area(3202,3506,3224,3498,0); 
-	private Area YEW_AREA3 = new Area(3084,3483,3089,3468,0); 
-	//private ArrayList<Area> yews = new ArrayList<>(Arrays.asList(YEW_AREA, YEW_AREA2, YEW_AREA3));
-	//private ArrayList<Area> ptrees = new ArrayList<>(Arrays.asList(TREE_AREA4));
-	//private ArrayList<Area> btrees = new ArrayList<>(Arrays.asList(TREE_AREA, TREE_AREA2, TREE_AREA3));
+	private Area YEW_AREA2 = new Area(3202,3506,3224,3498,0);  // ge
+	private Area YEW_AREA3 = new Area(3084,3483,3089,3468,0);  //edge
+	private Area YEW_AREA4 = new Area(3183,3228,3186,3225,0);  //lum
+	private Area YEW_AREA5 = new Area(3164,3222,3167,3218,0);  //lum
+	private Area YEW_AREA6 = new Area(3150,3232,3154,3230,0);  //lum
+	private ArrayList<Area> lyews = new ArrayList<>(Arrays.asList(YEW_AREA4, YEW_AREA5, YEW_AREA6));
+	private ArrayList<Area> yews = new ArrayList<>(Arrays.asList(YEW_AREA, YEW_AREA2, YEW_AREA3));
+	private ArrayList<Area> ptrees = new ArrayList<>(Arrays.asList(TREE_AREA, TREE_AREA2, TREE_AREA3, TREE_AREA4));
+	private ArrayList<Area> btrees = new ArrayList<>(Arrays.asList(TREE_AREA, TREE_AREA2, TREE_AREA3));
 	
 	private Area STAIRAREA = new Area(3205,3211,3207,3209,0); 
 	private final Tile LUMBY_STAIRS = new Tile(3205,3211,0);
@@ -88,66 +95,13 @@ public class GGCutter extends AbstractScript implements MessageListener {
 		Calculations.random(30000, 60000));
 		getSkillTracker().start(Skill.WOODCUTTING);
 		lvl = getSkills().getRealLevel(Skill.WOODCUTTING);
-		currentLog = Wood.NORMAL;
+		currentLog = Wood.OAK;
 		eAxe2 = "Bronze axe";
 		haveAxe = false;
 		BANK = BANK_AREA;
 		TREEAREA = TREE_AREA;
-		if(lvl > 65){
-			currentLog = Wood.YEW;
-			BANK = BANK_AREA2;
-			eAxe = "Rune axe";
-			if (gui.getway() == "Member") {
-					eAxe = "Dragon axe";
-			}
-		} else if (lvl > 41) {
-			eAxe = "Rune axe";
-		} else if (lvl > 31) {
-			eAxe = "Adamant axe";
-			currentLog = Wood.WILLOW;
-			BANK = BANK_AREA2;
-		} else if (lvl > 21) {
-			eAxe = "Mithril axe";
-			currentLog = Wood.OAK;
-			BANK = BANK_AREA;
-		} else if (lvl > 11) {
-			eAxe = "Black axe";
-			currentLog = Wood.NORMAL;
-		} else if (lvl > 6 ) {
-			eAxe = "Steel axe";
-			currentLog = Wood.NORMAL;
-		} else if (lvl > 1) {
-			currentLog = Wood.NORMAL;
-			eAxe = "Iron axe";
-			eAxe2 = "Bronze axe";
-		}
-		
-		
-		if (currentLog == Wood.NORMAL) {
-			logXP = 25;
-			logprice = 64;
-			TREEAREA = TREE_AREA;
-		} else if (currentLog == Wood.OAK) {
-			logXP = 37.5;
-			logprice = 48;
-			TREEAREA = OAK_AREA;
-		} else if (currentLog == Wood.WILLOW) {
-			logXP = 67.5;
-			logprice = 8;
-			TREEAREA = TREE_AREA2;
-			BANK = BANK_AREA2;
-		} else if (currentLog == Wood.MAPLE) {
-			logXP = 100;
-			logprice = 7;
-		} else if (currentLog == Wood.YEW) {
-			logXP = 175;
-			logprice = 347;
-			TREEAREA = YEW_AREA;
-			BANK = BANK_AREA2;
-		} else if (currentLog == Wood.MAGIC) {
-			logXP = 250;
-			logprice = 1168;
-		}
+		AxeCheck();
+		getWalking().getAStarPathFinder().addObstacle(new PassableObstacle("Staircase", "Climb-up", null, null, null));
 	}
 	
 	private enum State {
@@ -190,6 +144,7 @@ public class GGCutter extends AbstractScript implements MessageListener {
 					return State.WALK_TO_TREE;
 		} else if (BANK.contains(getLocalPlayer())
 				&& getInventory().isFull()){
+			log("GOTTABANK");
 					bank();
 		} else if (!getInventory().isFull()
 				&& getInventory().contains(eAxe2, eAxe)
@@ -214,63 +169,7 @@ public class GGCutter extends AbstractScript implements MessageListener {
 		switch (getState()) {
 
 		case CUT:
-			if(lvl > 65){
-				currentLog = Wood.YEW;
-				eAxe = "Rune axe";
-				if (gui.getway() == "Member") {
-						eAxe = "Dragon axe";
-				}
-			} else if (lvl > 41) {
-				eAxe = "Rune axe";
-				currentLog = Wood.WILLOW;
-			} else if (lvl > 31) {
-				eAxe = "Adamant axe";
-				currentLog = Wood.OAK;
-				BANK = BANK_AREA;
-			} else if (lvl > 21) {
-				eAxe = "Mithril axe";
-				currentLog = Wood.OAK;
-				BANK = BANK_AREA;
-			} else if (lvl > 11) {
-				eAxe = "Black axe";
-				currentLog = Wood.NORMAL;
-			} else if (lvl > 6 ) {
-				eAxe = "Steel axe";
-				currentLog = Wood.NORMAL;
-			} else if (lvl > 1) {
-				currentLog = Wood.NORMAL;
-				eAxe = "Iron axe";
-				eAxe2 = "Bronze axe";
-			}
-			
-				
-			if (currentLog == Wood.NORMAL) {
-				logXP = 25;
-				logprice = 64;
-				TREEAREA = TREE_AREA;
-				BANK = BANK_AREA;
-			} else if (currentLog == Wood.OAK) {
-				logXP = 37.5;
-				logprice = 48;
-			} else if (currentLog == Wood.WILLOW) {
-				logXP = 67.5;
-				logprice = 8;
-				TREEAREA = TREE_AREA2;
-				BANK = BANK_AREA2;
-			} else if (currentLog == Wood.MAPLE) {
-				logXP = 100;
-				logprice = 7;
-			} else if (currentLog == Wood.YEW) {
-				logXP = 175;
-				logprice = 347;
-				TREEAREA = YEW_AREA;
-				BANK = BANK_AREA2;
-			} else if (currentLog == Wood.MAGIC) {
-				logXP = 250;
-				logprice = 1168;
-			}
-			
-			
+			AxeCheck();
 			if (TREEAREA.contains(getLocalPlayer())) {
 				if (!newNest) { 
 					if (tree != null && TREEAREA.contains(tree)) {
@@ -411,7 +310,7 @@ public class GGCutter extends AbstractScript implements MessageListener {
 		case DROP:
 			List<Item> items = this.getInventory().all(i -> i.getName() == currentLog.getLogName());
 			for (Item i: items) {
-			    if(i.interact("Bury")){
+			    if(i.interact("Drop")){
 			        sleepUntil(() -> (i == null || !i.isValid()),1500);
 			    }
 			}
@@ -615,6 +514,76 @@ public class GGCutter extends AbstractScript implements MessageListener {
 		}
 	}
 	
+	private void AreaSwitch() { //Call this method before going to an area
+	    if (btrees == null || timer.elapsed() > 6000000) {
+	        if (timer.elapsed() > 6000000
+	        		&& TREEAREA != null) { 
+	            btrees.remove(TREEAREA); 
+	        }
+	        TREEAREA = btrees.get(Calculations.random(0, btrees.size()));
+	        timer.reset();
+	    }
+	}
+	
+	private void AxeCheck(){
+		if(lvl > 65){
+			currentLog = Wood.YEW;
+			eAxe = "Rune axe";
+			if (gui.getway() == "Member") {
+					eAxe = "Dragon axe";
+			}
+		} else if (lvl > 41) {
+			eAxe = "Rune axe";
+			currentLog = Wood.OAK;
+		} else if (lvl > 31) {
+			eAxe = "Adamant axe";
+			currentLog = Wood.OAK;
+			BANK = BANK_AREA;
+		} else if (lvl > 21) {
+			eAxe = "Mithril axe";
+			currentLog = Wood.OAK;
+			BANK = BANK_AREA;
+		} else if (lvl > 11) {
+			eAxe = "Black axe";
+			currentLog = Wood.NORMAL;
+		} else if (lvl > 6 ) {
+			eAxe = "Steel axe";
+			currentLog = Wood.NORMAL;
+		} else if (lvl > 1) {
+			currentLog = Wood.NORMAL;
+			eAxe = "Iron axe";
+			eAxe2 = "Bronze axe";
+		}
+		
+			
+		if (currentLog == Wood.NORMAL) {
+			logXP = 25;
+			logprice = 64;
+			TREEAREA = TREE_AREA;
+			BANK = BANK_AREA;
+		} else if (currentLog == Wood.OAK) {
+			logXP = 37.5;
+			logprice = 48;
+			BANK = BANK_AREA;
+		} else if (currentLog == Wood.WILLOW) {
+			logXP = 67.5;
+			logprice = 8;
+			TREEAREA = TREE_AREA2;
+			BANK = BANK_AREA2;
+		} else if (currentLog == Wood.MAPLE) {
+			logXP = 100;
+			logprice = 7;
+		} else if (currentLog == Wood.YEW) {
+			logXP = 175;
+			logprice = 347;
+			TREEAREA = YEW_AREA;
+			BANK = BANK_AREA2;
+		} else if (currentLog == Wood.MAGIC) {
+			logXP = 250;
+			logprice = 1168;
+		}
+		
+	}
 
 	
 	private final Color color1 = new Color(100, 100, 51, 147);
@@ -636,10 +605,10 @@ public class GGCutter extends AbstractScript implements MessageListener {
 		Graphics2D g = (Graphics2D) g1;
 		Stroke stroke = g.getStroke();
 		g.setColor(color1);
-		g.fillRect(3, 4, 185, 175);
+		g.fillRect(3, 4, 205, 185);
 		g.setColor(color2);
 		g.setStroke(stroke1);
-		g.drawRect(3, 4, 185, 175);
+		g.drawRect(3, 4, 225, 185);
 		g.setFont(font1);
 		g.setColor(color3);
 		g.drawString(getManifest().name() + "         " + "v"
@@ -674,6 +643,7 @@ public class GGCutter extends AbstractScript implements MessageListener {
 				+ (int) Math.floor(logsanhour * logprice) 
 				+ "]", 12, 161);
 		g.drawString("Target: " + currentLog.getTreeName(), 12, 174);
+		g.drawString("Axe: " + eAxe, 12, 188);
 		if (gui.getway() == "Member") {
 			g.drawString("{" + xnests + "}", 150, 181);
 		}
